@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      MOCK_LLM: "true"
+      API_KEYS: test-key-1,test-key-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g newman newman-reporter-htmlextra
+
+      - name: pytest (mock mode, offline)
+        run: pytest -q --cov=target_api --cov-report=term-missing --cov-report=xml --cov-report=html
+
+      - name: Start API in mock mode
+        run: |
+          nohup uvicorn target_api.main:app --port 8000 > api.log 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8000/health && exit 0
+            sleep 1
+          done
+          echo "API did not start"; cat api.log; exit 1
+
+      - name: Newman contract tests
+        run: |
+          mkdir -p newman
+          newman run postman/ai_api.postman_collection.json \
+            -e postman/local.postman_environment.json \
+            -r cli,htmlextra --reporter-htmlextra-export newman/report.html
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            htmlcov/
+            coverage.xml
+            newman/report.html
+            api.log
+          if-no-files-found: ignore

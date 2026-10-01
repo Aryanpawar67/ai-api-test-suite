@@ -9,3 +9,4 @@ monitor/failures.jsonl
 monitor/alert_state.json
 newman/
 node_modules/
+coverage.xml
