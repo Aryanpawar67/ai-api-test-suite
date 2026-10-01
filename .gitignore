@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+monitor/failures.jsonl
+monitor/alert_state.json
+newman/
+node_modules/
