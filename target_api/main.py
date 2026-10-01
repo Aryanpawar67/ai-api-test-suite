@@ -1,4 +1,6 @@
 import asyncio
+import hmac
+import logging
 import os
 import time
 import uuid
@@ -11,6 +13,7 @@ from fastapi.responses import JSONResponse
 from .llm_client import UpstreamError, get_client
 from .schemas import HealthResponse, SummarizeRequest, SummarizeResponse
 
+logger = logging.getLogger("target_api")
 app = FastAPI(title="AI Summarize API")
 llm = get_client()
 
@@ -61,10 +64,20 @@ def check_rate_limit(key: str) -> None:
     hits.append(now)
 
 
-def authenticate(x_api_key: str | None = Header(default=None)) -> str:
+def key_is_valid(candidate: str) -> bool:
+    # Constant-time comparison against every configured key (no early exit).
+    matched = False
+    for key in api_keys():
+        matched |= hmac.compare_digest(candidate.encode(), key.encode())
+    return matched
+
+
+def authenticate(request: Request, x_api_key: str | None = Header(default=None)) -> str:
     if not x_api_key:
         raise APIError(401, "missing_api_key", "X-API-Key header is required.")
-    if x_api_key not in api_keys():
+    if not key_is_valid(x_api_key):
+        # Throttle key guessing: failed attempts count against the client IP.
+        check_rate_limit(f"invalid:{request.client.host if request.client else 'unknown'}")
         raise APIError(403, "invalid_api_key", "API key is not valid.")
     check_rate_limit(x_api_key)
     return x_api_key
@@ -107,7 +120,8 @@ async def summarize(body: SummarizeRequest, request: Request, _key: str = Depend
     except asyncio.TimeoutError:
         raise APIError(504, "upstream_timeout", "The LLM did not respond in time.")
     except UpstreamError as exc:
-        raise APIError(502, "upstream_error", str(exc))
+        logger.error("upstream error (request %s): %s", request.state.request_id, exc)
+        raise APIError(502, "upstream_error", "The LLM provider returned an error.")
     return SummarizeResponse(
         summary=summary,
         model=model,
