@@ -22,4 +22,4 @@ newman:
 	  -r cli,htmlextra --reporter-htmlextra-export newman/report.html
 
 monitor:
-	BASE_URL=$(BASE_URL) $(BIN)/python monitor/run_checks.py
+	BASE_URL=$(BASE_URL) MONITOR_API_KEY=$${MONITOR_API_KEY:-test-key-1} $(BIN)/python monitor/run_checks.py
