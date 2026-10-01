@@ -10,7 +10,7 @@ install:
 	$(BIN)/pip install -r requirements.txt
 
 run:
-	MOCK_LLM=true $(BIN)/uvicorn target_api.main:app --port 8000
+	API_KEYS=$${API_KEYS:-test-key-1,test-key-2} MOCK_LLM=true $(BIN)/uvicorn target_api.main:app --port 8000
 
 test:
 	MOCK_LLM=true $(BIN)/pytest -q --cov=target_api --cov-report=term-missing

@@ -1,0 +1,571 @@
+{
+  "info": {
+    "name": "AI API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Contract tests for the AI summarize API. Run with `make newman` while `make run` is up."
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON content type', () => pm.response.to.have.header('Content-Type', 'application/json'));",
+                  "const b = pm.response.json();",
+                  "pm.test('status ok', () => pm.expect(b.status).to.eql('ok'));",
+                  "pm.test('mode is mock or live', () => pm.expect(b.mode).to.be.oneOf(['mock', 'live']));",
+                  "pm.test('X-Request-ID present', () => pm.response.to.have.header('X-Request-ID'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "POST /v1/summarize - valid key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"The quick brown fox jumps over the lazy dog near the river bank.\",\n  \"max_words\": 10\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test('response schema', () => {",
+                  "  pm.expect(b).to.have.all.keys('summary', 'model', 'latency_ms', 'request_id');",
+                  "  pm.expect(b.summary).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.model).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.latency_ms).to.be.a('number').and.at.least(0);",
+                  "});",
+                  "pm.test('summary within max_words', () => pm.expect(b.summary.split(/\\s+/).length).to.be.at.most(10));",
+                  "pm.test('X-Request-ID matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/summarize - missing key (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"The quick brown fox jumps over the lazy dog near the river bank.\",\n  \"max_words\": 10\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is missing_api_key', () => pm.expect(b.error.code).to.eql('missing_api_key'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /v1/summarize - invalid key (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "not-a-real-key"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"The quick brown fox jumps over the lazy dog near the river bank.\",\n  \"max_words\": 10\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 403', () => pm.response.to.have.status(403));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is invalid_api_key', () => pm.expect(b.error.code).to.eql('invalid_api_key'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Validation",
+      "item": [
+        {
+          "name": "max_words below minimum (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"hello world\",\n  \"max_words\": 5\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "max_words above maximum (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"hello world\",\n  \"max_words\": 201\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "missing text (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"max_words\": 20\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "text wrong type (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": 123,\n  \"max_words\": 20\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "text too long (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"max_words\": 20\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "malformed JSON (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"text\": \"hi\", "
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 422', () => pm.response.to.have.status(422));",
+                  "const b = pm.response.json();",
+                  "pm.test('error schema', () => {",
+                  "  pm.expect(b).to.have.property('error');",
+                  "  pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id');",
+                  "  pm.expect(b.error.message).to.be.a('string').and.not.empty;",
+                  "  pm.expect(b.error.request_id).to.be.a('string').and.not.empty;",
+                  "});",
+                  "pm.test('error code is validation_error', () => pm.expect(b.error.code).to.eql('validation_error'));",
+                  "pm.test('X-Request-ID header matches body', () => pm.expect(pm.response.headers.get('X-Request-ID')).to.eql(b.error.request_id));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rate limit (run last)",
+      "item": [
+        {
+          "name": "POST /v1/summarize - burst until 429",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{rate_limit_api_key}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/summarize",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "v1",
+                "summarize"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"The quick brown fox jumps over the lazy dog near the river bank.\",\n  \"max_words\": 10\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.info.iteration === 0 && !pm.collectionVariables.get('rl_count')) pm.collectionVariables.set('rl_count', 0);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const n = Number(pm.collectionVariables.get('rl_count') || 0) + 1;",
+                  "pm.collectionVariables.set('rl_count', n);",
+                  "if (pm.response.code === 429) {",
+                  "  pm.collectionVariables.unset('rl_count');",
+                  "  pm.test('429 after burst', () => pm.response.to.have.status(429));",
+                  "  pm.test('Retry-After header is a positive integer', () => pm.expect(parseInt(pm.response.headers.get('Retry-After'), 10)).to.be.above(0));",
+                  "  const b = pm.response.json();",
+                  "  pm.test('error schema', () => pm.expect(b.error).to.have.all.keys('code', 'message', 'request_id'));",
+                  "  pm.test('error code is rate_limited', () => pm.expect(b.error.code).to.eql('rate_limited'));",
+                  "} else if (n < 100) {",
+                  "  pm.execution.setNextRequest(pm.info.requestName);",
+                  "} else {",
+                  "  pm.collectionVariables.unset('rl_count');",
+                  "  pm.test('429 after burst', () => { throw new Error('no 429 after 100 requests'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
