@@ -10,7 +10,8 @@ from fastapi import Depends, FastAPI, Header, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from .llm_client import UpstreamError, get_client
+from .faults import parse_fault
+from .llm_client import EmptyUpstreamOutput, UpstreamError, get_client
 from .schemas import HealthResponse, SummarizeRequest, SummarizeResponse
 
 logger = logging.getLogger("target_api")
@@ -111,17 +112,29 @@ async def health():
 
 
 @app.post("/v1/summarize", response_model=SummarizeResponse)
-async def summarize(body: SummarizeRequest, request: Request, _key: str = Depends(authenticate)):
+async def summarize(
+    body: SummarizeRequest,
+    request: Request,
+    _key: str = Depends(authenticate),
+    x_fault: str | None = Header(default=None),
+):
+    try:
+        fault = parse_fault(x_fault)
+    except ValueError as exc:
+        raise APIError(400, "invalid_fault", str(exc))
     start = time.perf_counter()
     try:
         summary, model = await asyncio.wait_for(
-            llm.summarize(body.text, body.max_words), timeout=request_timeout()
+            llm.summarize(body.text, body.max_words, fault), timeout=request_timeout()
         )
     except asyncio.TimeoutError:
         raise APIError(504, "upstream_timeout", "The LLM did not respond in time.")
     except UpstreamError as exc:
         logger.error("upstream error (request %s): %s", request.state.request_id, exc)
-        raise APIError(502, "upstream_error", "The LLM provider returned an error.")
+        raise APIError(502, exc.code, "The LLM provider returned an error.")
+    if not summary.strip():
+        logger.error("empty upstream output (request %s)", request.state.request_id)
+        raise APIError(502, EmptyUpstreamOutput.code, "The LLM provider returned an empty summary.")
     return SummarizeResponse(
         summary=summary,
         model=model,
