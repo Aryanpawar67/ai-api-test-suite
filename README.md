@@ -1,7 +1,6 @@
 # ai-api-test-suite
 
-![ci](https://github.com/OWNER/ai-api-test-suite/actions/workflows/ci.yml/badge.svg)
-<!-- Replace OWNER with your GitHub username once the repo is pushed. -->
+![ci](https://github.com/Aryanpawar67/ai-api-test-suite/actions/workflows/ci.yml/badge.svg)
 
 A small LLM-backed REST API (`POST /v1/summarize`) plus the tooling a team uses to catch failures in
 AI-backed APIs before customers do: a pytest suite, a Postman/Newman contract suite, a scheduled monitor
